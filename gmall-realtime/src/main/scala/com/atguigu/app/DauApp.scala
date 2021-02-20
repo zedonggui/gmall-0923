@@ -8,11 +8,12 @@ import com.atguigu.bean.StartUpLog
 import com.atguigu.constants.GmallConstants
 import com.atguigu.handler.Dauhandler
 import com.atguigu.utils.MyKafkaUtil
+import org.apache.hadoop.hbase.HBaseConfiguration
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.spark.SparkConf
 import org.apache.spark.streaming.dstream.{DStream, InputDStream}
 import org.apache.spark.streaming.{Seconds, StreamingContext}
-
+import org.apache.phoenix.spark._
 object DauApp {
   def main(args: Array[String]): Unit = {
     //1.获取SparkConf
@@ -42,16 +43,31 @@ object DauApp {
         startUpLog
       })
     })
-    startUpLogDStream
+
+
 
     //5.跨批次去重
+    val fileterByRedisDStream: DStream[StartUpLog] = Dauhandler.filterByRedis(startUpLogDStream,ssc.sparkContext)
+
+//    startUpLogDStream.cache()
+//    fileterByRedisDStream.cache()
+//
+//    startUpLogDStream.count().print()
+//    fileterByRedisDStream.count().print()
 
     //6.批次内去重
+    val filterByMidDStream: DStream[StartUpLog] = Dauhandler.filterByMid(fileterByRedisDStream)
+
+//    filterByMidDStream.cache()
+//    filterByMidDStream.count().print()
 
     //7.将去重后的mid写入redis
-    Dauhandler.saveMidToRedis(startUpLogDStream)
+    Dauhandler.saveMidToRedis(filterByMidDStream)
 
     //8.将明细数据写入HBase
+    filterByMidDStream.foreachRDD(rdd=>{
+      rdd.saveToPhoenix("GMALL0923_DAU",Seq("MID", "UID", "APPID", "AREA", "OS", "CH", "TYPE", "VS", "LOGDATE", "LOGHOUR", "TS"),HBaseConfiguration.create(),Some("hadoop102,hadoop103,hadoop104:2181"))
+    })
 
     //    //打印
     //    kafkaDStream.foreachRDD(rdd=>{
