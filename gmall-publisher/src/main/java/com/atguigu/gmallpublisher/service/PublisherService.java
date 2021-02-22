@@ -9,4 +9,12 @@ public interface PublisherService {
 
     //分时数据
     public Map getDauTotalHourMap(String date);
+
+    //GMV总数
+    public Double getGmvTotal(String date);
+
+    //GMV分时数据
+    public Map getGmvTotalHourMap(String date);
+
+
 }
