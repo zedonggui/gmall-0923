@@ -9,6 +9,13 @@ import io.searchbox.core.SearchResult;
 import io.searchbox.core.search.aggregation.MaxAggregation;
 import io.searchbox.core.search.aggregation.MetricAggregation;
 import io.searchbox.core.search.aggregation.TermsAggregation;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.MatchQueryBuilder;
+import org.elasticsearch.index.query.TermQueryBuilder;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
+import org.elasticsearch.search.aggregations.metrics.max.MaxAggregationBuilder;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import java.io.IOException;
 import java.util.List;
@@ -28,41 +35,26 @@ public class EsReader {
         JestClient jestClient = clientFactory.getObject();
 
         //4.执行查询
-        Search search = new Search.Builder("{\n" +
-                "  \"query\": {\n" +
-                "    \"bool\": {\n" +
-                "      \"filter\": {\n" +
-                "        \"term\": {\n" +
-                "          \"name\": \"小\"\n" +
-                "        }\n" +
-                "      },\n" +
-                "      \"must\": [\n" +
-                "        { \"match\": {\n" +
-                "            \"favo\": \"球\"\n" +
-                "           }\n" +
-                "        }\n" +
-                "      ]\n" +
-                "    }\n" +
-                "  },\n" +
-                "  \"aggs\": {\n" +
-                "    \"groupByClass\": {\n" +
-                "      \"terms\": {\n" +
-                "        \"field\": \"class_id\",\n" +
-                "        \"size\": 10\n" +
-                "      },\n" +
-                "     \"aggs\": {\n" +
-                "        \"maxAge\": {\n" +
-                "           \"max\": {\n" +
-                "              \"field\": \"age\"\n" +
-                "            }\n" +
-                "         }\n" +
-                "      }\n" +
-                "    }\n" +
-                "  },\n" +
-                "    \"from\": 0,\n" +
-                "    \"size\": 2\n" +
-                "  \n" +
-                "}")
+        //类似“{}”
+        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+        //---------------------------query-----------------------------
+        BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
+        TermQueryBuilder termQueryBuilder = new TermQueryBuilder("name","小");
+        boolQueryBuilder.filter(termQueryBuilder);
+        sourceBuilder.query(boolQueryBuilder);
+        //---------------------------must-----------------------------
+        MatchQueryBuilder matchQueryBuilder = new MatchQueryBuilder("favo","球");
+        boolQueryBuilder.must(matchQueryBuilder);
+        //---------------------------aggs-----------------------------
+        TermsAggregationBuilder groupByClass1 = AggregationBuilders.terms("groupByClass").field("class_id").size(10);
+        MaxAggregationBuilder maxAge1 = AggregationBuilders.max("maxAge").field("age");
+        sourceBuilder.aggregation(groupByClass1.subAggregation(maxAge1));
+//        sourceBuilder.aggregation(maxAge1);
+
+        sourceBuilder.from(0);
+        sourceBuilder.size(2);
+
+        Search search = new Search.Builder(sourceBuilder.toString())
                 .addIndex("student3")
                 .addType("_doc")
                 .build();
